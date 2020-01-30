@@ -1,0 +1,556 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+# Filling missing values with MEAN
+
+```{r}
+
+library(Hmisc) 
+summary(df$Salary)
+df$Salary <- impute(df$Salary, mean)
+
+
+dataset$Age = ifelse(is.na(dataset$Age),
+                     ave(dataset$Age, FUN = function(x) mean(x, na.rm = TRUE)),
+                     dataset$Age)
+dataset$Salary = ifelse(is.na(dataset$Salary),
+                        ave(dataset$Salary, FUN = function(x) mean(x, na.rm = TRUE)),
+                        dataset$Salary)
+
+```
+
+ 
+
+
+                        
+# create a dataset with some NA values
+```{r}
+
+
+df <- data.frame(
+  V1 = c(1,3,6,NA,7,1,NA,9,15),
+  V2 = c(7,NA,5,9,12,NA,NA,2,3),
+  V3 = c(NA,12,5,6,3,7,2,NA,31)
+)
+
+```
+
+
+# Simply delete all Rows with missing values 
+
+```{r}
+#delete
+na.omit(df)
+
+#filling V1 variable with mean value
+df$V1[is.na(df$V1)] <- mean(df$V1, na.rm = TRUE) #fill V1 column with mean value 
+df
+
+# filling all missing values with mean value by using "sapply" function 
+sapply(df, function(x) ifelse(is.na(x), mean(x, na.rm = TRUE), x ))
+
+df
+
+```
+
+# Considering missing values
+
+## Searhing missing values and detecting the missing value's cell and Saydirma
+
+```{r}
+df <- data.frame(
+  V1 = c(1,3,6,NA,7,1,NA,9,15),
+  V2 = c(7,NA,5,9,12,NA,NA,2,3),
+  V3 = c(NA,12,5,6,3,7,2,NA,31)
+)
+# Missing values on complete data 
+is.na(df) #searh for NA values 
+which(is.na(df)) #reach the location of missing data
+df
+sum(is.na(df)) # how many missing values in total
+
+
+# Missing values on a variable basis 
+is.na(df$V1) # Has V1 variable any missing data? (True or False)
+which(is.na(df$V1)) # Which elements of V1 variable are missing?
+df$V1
+sum(is.na(df$V1)) # number of missing values for V1 variable
+colSums(is.na(df)) # number of missing values for each variable
+
+```
+
+## Accessing Missing or Non missing Observations 
+
+```{r}
+
+df <- data.frame(
+  V1 = c(1,3,6,NA,7,1,NA,9,15),
+  V2 = c(7,NA,5,9,12,NA,NA,2,3),
+  V3 = c(NA,12,5,6,3,7,2,NA,99)
+)
+
+
+df
+
+complete.cases(df) 
+
+df[complete.cases(df), ] #shows the observations only without any missing data
+
+df[!complete.cases(df), ] # observations with missing data 
+df[complete.cases(df), ]$V1 # Non missing observations of V1 variable
+
+
+
+
+```
+
+
+## Assign NA value to a specific cell 
+
+```{r}
+df$V3[df$V3 == 99] <- NA # assign V3[99] = NA
+
+df
+```
+
+
+# Investigation of the Structure of Missing Data
+
+```{r}
+
+#install.packages("ISLR")
+library(ISLR)    
+
+# We load Hitters dataset
+df <- Hitters
+str(df) # see the data
+colSums(is.na(df)) # the output shows us, there are 59 missing datas at Salary variable.
+
+# To analyze the missing data we will insert some more missing observations randomly
+df[sample(1:nrow(df), 7), "Hits"] <- NA # adds 7 missing values to 'Hits' variable
+df[sample(1:nrow(df), 9), "Runs"] <- NA # adds 9 missing values to 'Hits' variable
+df[sample(1:nrow(df), 5), "RBI"] <- NA # adds 5 missing values to 'Hits' variable
+
+colSums(is.na(df))
+
+df[, c("Salary", "Hits" ,"Runs", "RBI")]
+
+# only the observations witout any missing data
+df[complete.cases(df), ] 
+
+
+#  only the observations with one or more missing data
+df[!complete.cases(df), ] 
+
+
+
+```
+
+## Inspecting data structure by using 'Mice Library' 
+
+```{r}
+install.packages("mice")  
+library(mice) 
+
+# visualizes the distribution of "complete missing data" on the graph
+md.pattern(df) 
+
+# visualizes the distribution of "selected variable's missing data" on the graph
+md.pattern(df[, c("CAtBat","Years","Walks","Salary", "Hits" ,"Runs", "RBI") ])    
+
+nrow(df[complete.cases(df), ] ) # number of rows with non missing data
+
+
+missings <- df[!complete.cases(df), ] # only the cases with missing values
+View(missings)
+
+```
+
+## Inspecting data structure by using "VIM Library" 
+```{r}
+library(VIM)     
+
+aggr_plot <- aggr(df, col=c('navyblue','red'), 
+                  numbers = TRUE, 
+                  sortVars = TRUE, 
+                  labels = names(df), 
+                  cex.axis=.7, 
+                  gap=3, 
+                  ylab=c("Percentage of missing values",
+                         "Structure of missing values"))
+
+
+aggr_plot
+
+
+```
+
+
+# Hypothesis Testing of normal distribution : LittleMCAR 
+
+Hypothesis
+H0: Missing values are randomly distributed  
+H1: ... Not randomly..   (Dagilmamistir)
+
+
+```{r}
+install.packages("BaylorEdPsych")  
+library(BaylorEdPsych)
+install.packages("mvnmle")
+library(mvnmle)
+
+r_test <- LittleMCAR(df) #The null hypothesis for Little's MCAR test is that the data are missing completely at random 
+
+#Warning: df data have to have less than 50 variable. littleMCAR function works with maximum 50 variables. If you have more than 50 variables you can simply divide your dataset into 2 part and use this function
+
+attributes(r_test) # you can see what variables we have about this element
+
+r_test$p.value  # p-value point out if the data is randomly distributed or not.
+# The smaller the p-value, the stronger the evidence that you should reject the null hypothesis. And we can say the values are not randomly distributed. We should think twice before deleting the missing rows directly.
+
+r_test$amount.missing
+
+```
+
+
+# Deleting methods
+```{r}
+sapply(df, function(x)(sum(is.na(x))))  # prints number of missing values
+```
+
+
+## Deleting observation
+```{r}
+df <- Hitters
+df[sample(1:nrow(df), 7), "Hits"] <- NA # deletes 7 observations of "Hits" variable randomly.
+df[sample(1:nrow(df), 9), "Runs"] <- NA # deletes 7 observations of "Runs" variable randomly.
+df[sample(1:nrow(df), 5), "RBI"] <- NA  # deletes 7 observations of "RBI" variable randomly.
+
+str(df)
+
+# Deleting complete observation that has at least one missing value
+na.omit(df)
+sapply(na.omit(df), function(x) (sum(is.na(x)))) 
+str(df)
+
+
+
+# Deleting a particular variable's all missing values 
+df[!is.na(df$Runs),]  
+
+# # see how many missing values has the dataset at each column
+sapply(df, function(x) (sum(is.na(x)))) 
+
+# Deleting all the rows that have missing values in 'Runs' column
+sapply(df[!is.na(df$Runs),] , function(x) (sum(is.na(x)))) 
+
+
+
+# DISCOVERING MISSING VALUES ON OBSERVATION BASE
+df[1,]
+
+is.na(df[1,]) # any missing values at the first row of the dataset?
+
+sum(is.na(df[1,])) #total number of missing values in first row
+
+#total percentage of missing values in first row
+sum(is.na(df[1,]))/length(df[1,]) 
+
+#tum gozlemlere uygulanmasi
+apply(df, 1, function(x) sum(is.na(x)) / length(x)) #percentage of missing data in each observation. 1 means = select all observations, 2 = all columns
+
+
+# calculate missing value percentage in each observation
+missingValues <- apply(df, 1, function(x) sum(is.na(x)) / length(x))  
+missingValues <- as.vector(missingValues) # convert it to vector
+missingValues # look at the percentage of missing values at each row
+
+df$missing_percentage <- missingValues # adds a new column to 'df' dataframe as missing_percentage.
+
+str(df)  # you see the missing percentage 
+
+summary(df$missing_percentage)
+
+# if missing percentage is less than 0.01, delete this observation
+df <- df %>% filter(missing_percentage < 0.01) 
+str(df)
+
+
+```
+
+## Deleting Variables
+```{r}
+
+df <- Hitters
+df[sample(1:nrow(df), 7), "Hits"] <- NA 
+df[sample(1:nrow(df), 9), "Runs"] <- NA
+df[sample(1:nrow(df), 5), "RBI"] <- NA
+
+#TOTAL NUMBER OF MISSING VALUES FOR EACH VARIABLE
+colSums(is.na(df)) 
+
+
+# PERCENTAGE OF MISSING VALUES FOR EACH VARIABLE 
+library(funModeling)
+
+df_status(df) # if this cames confusinf. se can also do by following the below code
+
+df_na <- df_status(df) # The output of this function prints q_na = quantity of NA and p_NA = percentage of NA
+
+df_na[,c("variable","q_na","p_na")] # Total number of NA and percentage of NA values
+
+
+# DELETING A VARIABLE FROM THE TABLE
+df$Salary <- NULL
+summary(df) 
+
+
+#COK DEGISKENLI VERI SETINDE DEGISKEN SILME
+# have a look at the missing values percentage at each variable
+apply(df, 2, function(x) sum(is.na(x)) / length(x))
+e_d <- apply(df, 2, function(x) sum(is.na(x)) / length(x))
+
+
+# convert it to a dataframe
+e_d <- as.data.frame(e_d)
+
+# add variable names to the column
+e_d$new_variable <- rownames(e_d) 
+
+
+# reach the variables which values are above 0.02
+e_d[e_d$e_d > 0.02,] 
+
+# select variables
+e_d[e_d$e_d > 0.02,]$variable_name
+#bu degiskenleri ana veri setinden silmek
+e_d_d <- df %>% select(-c(e_d[e_d$e_d > 0.02,]$variable_name))
+str(e_d_d)
+
+```
+
+
+# Methods of filling missing values    
+```{r}
+
+#Dataset
+df <- Hitters
+df[sample(1:nrow(df), 7), "Hits"] <- NA  # insert more missing alues to 'particular 'Hits' column randomly
+df[sample(1:nrow(df), 9), "Runs"] <- NA
+df[sample(1:nrow(df), 5), "RBI"] <- NA
+
+
+# Filling missing values with classic method (mean)
+summary(df$Hits)
+df$Hits[is.na(df$Hits)] <- mean(df$Hits, na.rm = TRUE)
+summary(df$Hits)
+
+
+# Filling missing values by using 'Hmisc' Library with mode, median or a particular value
+library(Hmisc) 
+# fill missing values with mean
+summary(df$Salary)
+df$Salary <- impute(df$Salary, mean)  
+summary(df$Salary)
+
+# fill missing values with median, mod and a particular values
+impute(df$Salary, median) #median
+impute(df$Salary, mode) #mod
+impute(df$Salary, 500) # assign 500 for all missing values at Salary column
+
+
+```
+
+
+# ASSIGNING MISSING VALUES BY USING PREDICTION METHODS
+# Assign missing values with KNN imputation
+
+## KNN Imputation
+```{r}
+#Data set
+df <- Hitters
+df[sample(1:nrow(df), 7), "Hits"] <- NA 
+df[sample(1:nrow(df), 9), "Runs"] <- NA
+df[sample(1:nrow(df), 5), "RBI"] <- NA
+
+install.packages(DMwR)  
+library(DMwR) # library is needed for KNN
+
+knn_data <- knnImputation(df, k = 5) # this short code fills all the missing values according to KNN imputatuon method
+anyNA(knn_data) # checking missing values 
+
+str(knn_data)
+summary(knn_data)
+
+
+```
+
+
+## Compare KNN imputation values and Real values (How successful is KNN inputation at this example?)
+```{r}
+df <- Hitters
+df[sample(1:nrow(df), 7), "Hits"] <- NA 
+df[sample(1:nrow(df), 9), "Runs"] <- NA
+df[sample(1:nrow(df), 5), "RBI"] <- NA
+
+# reaching missing value indexes for 'Hits' column 
+which(is.na(df))
+which(is.na(df$Hits))
+
+# printing missing value indexes for all columns
+sapply(df, function(x) which(is.na(x)))
+
+l <- sapply(df, function(x) which(is.na(x)))
+l
+l <- l[c("Salary","Hits","Runs","RBI")] # we only selected the variables with only missing values 
+l
+
+
+
+#REAL DATA VALUES  (before we assigned random missing values)
+Hitters[c(l$Hits),]$Hits 
+Hitters[c(l$Runs),]$Runs
+Hitters[c(l$RBI),]$RBI
+
+#PREDICTED VALUES 
+knn_data <- knnImputation(df, k = 5) 
+
+knn_data[c(l$Hits),]$Hits
+knn_data[c(l$Runs),]$Runs
+knn_data[c(l$RBI),]$RBI
+
+
+#COMPARE REAL AND PREDICTED DATA 
+mean(Hitters[c(l$Hits),]$Hits - knn_data[c(l$Hits),]$Hits) # mean of (real values - predicted values)
+summary(Hitters$Hits) 
+
+mean(Hitters[c(l$Runs),]$Runs - knn_data[c(l$Runs),]$Runs) # mean of (real values - predicted values)
+summary(Hitters$Runs)
+
+mean(Hitters[c(l$RBI),]$RBI - knn_data[c(l$RBI),]$RBI) # mean of (real values - predicted values)
+summary(Hitters$Runs)
+
+```
+
+
+
+## Imputation with Random Forest
+```{r}
+
+#install.packages("missForest")
+library(missForest)
+
+
+df <- Hitters
+df[sample(1:nrow(df), 7), "Hits"] <- NA # insert 7 missing alues to 'Hits' column randomly
+df[sample(1:nrow(df), 9), "Runs"] <- NA # insert 9 missing alues to 'Runs' column randomly
+df[sample(1:nrow(df), 5), "RBI"] <- NA # insert 5 missing alues to 'RBI' column randomly
+
+
+rf_data <- missForest(df, ntree = 7)  # predict missing values with random forest method
+
+str(rf_data)
+
+```
+
+
+## Compare Ramdom Forest values with Real values
+```{r}
+df <- Hitters
+summary(Hitters)
+df[sample(1:nrow(df), 7), "Hits"] <- NA  # insert 7 missing alues to 'Hits' column randomly
+df[sample(1:nrow(df), 9), "Runs"] <- NA # insert 7 missing alues to 'Runs' column randomly
+df[sample(1:nrow(df), 5), "RBI"] <- NA # insert 7 missing alues to 'RBI' column randomly
+
+l <- sapply(df, function(x) which(is.na(x)))
+
+l <- l[c("Salary","Hits","Runs","RBI")]
+
+
+
+#Real values of indexes in real data
+Hitters[c(l$Hits),]$Hits
+Hitters[c(l$Runs),]$Runs
+Hitters[c(l$RBI),]$RBI
+
+# Reaching predicted values by Random Forest
+rf_data <- missForest(df, ntree = 10)
+
+rf_data <- rf_data$ximp
+
+rf_data[c(l$Hits),]$Hits
+rf_data[c(l$Runs),]$Runs
+rf_data[c(l$RBI),]$RBI
+
+
+# Compare Mean of real data and predicted values
+mean(Hitters[c(l$Hits),]$Hits - rf_data[c(l$Hits),]$Hits)
+summary(Hitters$Hits)
+
+mean(Hitters[c(l$Runs),]$Runs - rf_data[c(l$Runs),]$Runs)
+summary(Hitters$Runs)
+
+mean(Hitters[c(l$RBI),]$RBI - rf_data[c(l$RBI),]$RBI)
+summary(Hitters$Runs)
+```
+
+
+```{r}
+# KNN imputation or Random forest? Which one is better to assign missing values for our dataset? How to understand it?
+# Assume that you have a dataset that has 10000 rows. And this dataset has also missing values and we should deal with it.
+
+df <- Hitters
+# 1st step: Select all the rows without any missing value. 
+df[complete.cases(df), ] -> complete_dataset
+
+# 2nd step: Insert random NA values to the dataset
+summary(Hitters)
+complete_dataset[sample(1:nrow(df), 7), "Hits"] <- NA  # insert 7 missing alues to 'Hits' column randomly
+complete_dataset[sample(1:nrow(df), 9), "Runs"] <- NA # insert 7 missing alues to 'Runs' column randomly
+complete_dataset[sample(1:nrow(df), 5), "RBI"] <- NA # insert 7 missing alues to 'RBI' column randomly
+
+# 3rd step: Predict missing values with KNN imputation.
+knn_data <- knnImputation(complete_dataset, k = 5) 
+
+# 4th step: Predict missing values with Random Forest
+rf_data <- missForest(complete_dataset, ntree = 10)
+
+# 5th step: Select indexes of missing values in each observation
+l <- sapply(df, function(x) which(is.na(x)))
+l
+l <- l[c("Salary","Hits","Runs","RBI")] # we only selected the variables with only missing values 
+l
+
+
+
+# 6th step: Compare Real values and KNN imputation results
+mean(Hitters[c(l$Hits),]$Hits - knn_data[c(l$Hits),]$Hits) # mean of (real values - predicted values)
+summary(Hitters$Hits) 
+
+mean(Hitters[c(l$Runs),]$Runs - knn_data[c(l$Runs),]$Runs) # mean of (real values - predicted values)
+summary(Hitters$Runs)
+
+mean(Hitters[c(l$RBI),]$RBI - knn_data[c(l$RBI),]$RBI) # mean of (real values - predicted values)
+summary(Hitters$Runs)
+
+
+
+# 7th step: Compare Real values with Random Forest results
+mean(Hitters[c(l$Hits),]$Hits - rf_data[c(l$Hits),]$Hits)
+summary(Hitters$Hits)
+
+mean(Hitters[c(l$Runs),]$Runs - rf_data[c(l$Runs),]$Runs)
+summary(Hitters$Runs)
+
+mean(Hitters[c(l$RBI),]$RBI - rf_data[c(l$RBI),]$RBI)
+summary(Hitters$Runs)
+
+# 8th step: Analyze the results of 6th step and 7th step and choose the best model.
+
+
+
+```
